@@ -1,0 +1,28 @@
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; background: #f0f2f5; }
+#app { max-width: 600px; margin: 0 auto; background: white; min-height: 100vh; display: flex; flex-direction: column; }
+
+.header-logo { padding: 15px; text-align: center; background: white; border-bottom: 2px solid #004a99; }
+.header-logo img { height: 70px; width: auto; }
+
+.tabs { display: flex; background: #004a99; position: sticky; top: 0; z-index: 100; }
+.tab-btn { flex: 1; padding: 15px 5px; border: none; background: none; color: white; font-weight: bold; opacity: 0.6; font-size: 13px; }
+.tab-btn.active { opacity: 1; border-bottom: 4px solid white; }
+
+.tab-content { padding: 20px; display: none; flex-grow: 1; }
+
+.form-group { margin-bottom: 15px; }
+label { display: block; font-weight: bold; color: #004a99; margin-bottom: 5px; font-size: 14px; }
+input, select, textarea { width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 8px; font-size: 16px; box-sizing: border-box; }
+
+/* AREA PANNELLI */
+textarea#pannelli { height: 250px; font-family: monospace; background: #f9f9f9; border: 2px solid #004a99; resize: none; }
+
+.quick-actions { display: grid; grid-template-columns: 1fr; gap: 10px; margin-top: 15px; }
+.btn-tool { padding: 15px; background: #e8f0fe; border: 1px solid #004a99; color: #004a99; border-radius: 8px; font-weight: bold; cursor: pointer; }
+.select-tool { padding: 15px; background: #fffde7; border: 1px solid #fbc02d; font-weight: bold; }
+
+.preview-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 15px; }
+.preview-grid img { width: 100%; height: 100px; object-fit: cover; border-radius: 8px; border: 1px solid #ddd; }
+
+.btn-send { width: 100%; padding: 20px; background: #28a745; color: white; border: none; border-radius: 12px; font-size: 18px; font-weight: bold; margin-top: 30px; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+.btn-send:active { transform: scale(0.98); }

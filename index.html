@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>PT - Carico Merci</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#004a99">
+    <link rel="apple-touch-icon" href="logo-icon-192.png">>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://unpkg.com/html5-qrcode"></script>
+</head>
+<body>
+
+<div id="app">
+    <div class="header-logo">
+        <img src="pt.png" alt="Logo Pannelli Termici">
+    </div>
+
+    <nav class="tabs">
+        <button class="tab-btn active" onclick="openTab(event, 'tab1')">1. DATI</button>
+        <button class="tab-btn" onclick="openTab(event, 'tab2')">2. CARICO</button>
+        <button class="tab-btn" onclick="openTab(event, 'tab3')">3. INVIO</button>
+    </nav>
+
+    <section id="tab1" class="tab-content" style="display: block;">
+        <div class="form-group">
+            <label>Data Carico</label>
+            <input type="date" id="dataCarico">
+        </div>
+        <div class="form-group">
+            <label>Operatore</label>
+            <select id="operatore">
+                <option>Marcone F.</option>
+                <option>Olivieri M.</option>
+                <option>D'Amario A.</option>
+                <option>Di Carlo G.</option>
+                <option>Marcone G.</option>
+                <option>Lalli S.</option>
+                <option>Pannelli G.</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <input type="text" id="vettore" placeholder="Vettore / Targa">
+        </div>
+        <div class="form-group">
+            <input type="text" id="cliente" placeholder="Cliente">
+        </div>
+        <div class="form-group">
+            <input type="text" id="destinazione" placeholder="Destinazione">
+        </div>
+    </section>
+
+<section id="tab2" class="tab-content">
+    <label>Scansione Pacchi / QR Code</label>
+    
+    <div id="qr-reader-container" style="display: none; margin-bottom: 15px;">
+        <div id="qr-reader" style="width: 100%; border-radius: 10px; overflow: hidden; border: 2px solid #004a99;"></div>
+    </div>
+
+    <button id="btn-scan" class="btn-tool" style="background: #ffc107; color: black; margin-bottom: 15px; width: 100%;" onclick="toggleScanner()">
+        📷 ATTIVA SCANNER QR
+    </button>
+
+    <label>Elenco Pacchi / Articoli</label>
+    <textarea id="pannelli" placeholder="Spara i pacchi o usa lo scanner..."></textarea>
+    
+    <div class="quick-actions">
+        <button class="btn-tool" onclick="addText('----------------------')">SEPARATORE</button>
+        <button class="btn-tool" onclick="addText('SPINE 20x40')">SPINE 20x40</button>
+        <button class="btn-tool" onclick="addText('SPINE 30x60')">SPINE 30x60</button>
+        
+        <select id="selectAccessori" class="select-tool" onchange="addAccessorio()">
+            <option value="">AGGIUNGI ACCESSORIO...</option>
+            <option>ACC.ROSETO</option>
+            <option>ACC.CENTRO SUD</option>
+            <option>ACC.METAL TREC</option>
+            <option>ACC.VALLAROLA</option>
+            <option>ACC.METALLURGICA</option>
+            <option>ACC.VARI</option>
+        </select>
+    </div>
+</section>
+
+<script src="https://unpkg.com/html5-qrcode"></script>
+
+    <section id="tab3" class="tab-content">
+        <div class="foto-container">
+            <label>📷 Foto del Carico</label>
+            <input type="file" id="fotoInput" accept="image/*" capture="environment" multiple>
+            <div id="preview" class="preview-grid"></div>
+        </div>
+        
+        <button class="btn-send" onclick="generaEInvia()">🚀 GENERA PDF E INVIA</button>
+    </section>
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>
