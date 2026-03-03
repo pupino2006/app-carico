@@ -115,6 +115,7 @@ function addSpecial(tipo, valore) {
 // --- GENERAZIONE E INVIO (SISTEMA RAPPORTINI) ---
 async function generaEInvia() {
     const btn = document.querySelector('.btn-send');
+    const originalText = btn.innerText;
     btn.innerText = "⏳ SALVATAGGIO IN CORSO...";
     btn.disabled = true;
 
@@ -125,57 +126,49 @@ async function generaEInvia() {
         const cliente = document.getElementById('cliente').value || "Generico";
         const operatore = document.getElementById('operatore').value;
         const dataCarico = document.getElementById('dataCarico').value;
-        const vettore = document.getElementById('vettore').value;
-        const destinazione = document.getElementById('destinazione').value;
+        const vettore = document.getElementById('vettore').value || "Non specificato";
         const listaMateriale = document.getElementById('pannelli').value;
 
         if (!operatore || !cliente) {
             alert("⚠️ Inserisci almeno Operatore e Cliente!");
             btn.disabled = false;
-            btn.innerText = "🚀 GENERA PDF E INVIA";
+            btn.innerText = originalText;
             return;
         }
 
-        // --- COSTRUZIONE PDF ---
+        // --- PAGINA 1: DATI E LISTA ---
         doc.setFontSize(20); doc.setTextColor(0, 74, 153);
         doc.text("RAPPORTO DI CARICO MERCI", 105, 20, {align: 'center'});
-        
         doc.setFontSize(11); doc.setTextColor(0);
-        doc.text(`Data: ${dataCarico}`, 20, 40);
-        doc.text(`Operatore: ${operatore}`, 20, 47);
+        doc.text(`Data: ${dataCarico} | Operatore: ${operatore}`, 20, 40);
+        doc.text(`Cliente: ${cliente}`, 20, 47);
         doc.text(`Vettore: ${vettore}`, 20, 54);
-        doc.text(`Cliente: ${cliente}`, 20, 61);
-        doc.text(`Destinazione: ${destinazione}`, 20, 68);
-        
-        doc.line(20, 73, 190, 73);
-        doc.setFont("helvetica", "bold");
-        doc.text("MATERIALE CARICATO:", 20, 80);
-        doc.setFont("helvetica", "normal");
+        doc.line(20, 58, 190, 58);
         
         const splitLista = doc.splitTextToSize(listaMateriale, 170);
-        doc.text(splitLista, 20, 87);
+        doc.text(splitLista, 20, 65);
 
-        // Aggiunta Foto (se presenti)
+        // --- GESTIONE FOTO MULTIPLE ---
         const fotoFiles = document.getElementById('fotoInput').files;
         if (fotoFiles.length > 0) {
             for (let i = 0; i < fotoFiles.length; i++) {
-                const imgData = await new Promise(resolve => {
+                const imgData = await new Promise((resolve) => {
                     const reader = new FileReader();
                     reader.onload = (e) => resolve(e.target.result);
                     reader.readAsDataURL(fotoFiles[i]);
                 });
                 doc.addPage();
-                doc.text(`ALLEGATO FOTOGRAFICO ${i+1}`, 105, 20, {align: 'center'});
+                doc.setFontSize(14);
+                doc.text(`ALLEGATO FOTOGRAFICO ${i + 1}`, 105, 20, {align: 'center'});
+                // Ridimensionamento immagine per stare nella pagina
                 doc.addImage(imgData, 'JPEG', 15, 30, 180, 135);
             }
         }
 
-        // 1. TRASFORMA PDF IN BLOB PER UPLOAD
         const pdfBlob = doc.output('blob');
         const fileName = `${Date.now()}_Carico_${cliente.replace(/\s+/g, '_')}.pdf`;
 
-        // 2. UPLOAD SU SUPABASE STORAGE (Usa lo stesso bucket o uno nuovo se preferisci)
-        // Assicurati che il bucket 'documenti-carico' esista ed è pubblico
+        // 1. UPLOAD STORAGE
         const { data: storageData, error: storageError } = await supabaseClient
             .storage
             .from('documenti-carico')
@@ -183,57 +176,49 @@ async function generaEInvia() {
 
         if (storageError) throw new Error("Errore Storage: " + storageError.message);
 
-        // 3. OTTIENI URL PUBBLICO
+        // 2. OTTIENI URL PUBBLICO
         const { data: urlData } = supabaseClient.storage.from('documenti-carico').getPublicUrl(fileName);
         const pdfUrl = urlData.publicUrl;
 
-        // 4. SALVA NEL DATABASE (Tabella 'carichi')
-        const { error: dbError } = await supabaseClient
-            .from('carichi')
-            .insert([{
-                operatore: operatore,
-                vettore: vettore,
-                cliente: cliente,
-                destinazione: destinazione,
-                pannelli: listaMateriale,
-                spine: datiSpeciali.spine,
-                accessori: datiSpeciali.accessori,
-                pdf_url: pdfUrl,
-                foto_nome: fileName
-            }]);
-
+        // 3. SALVA NEL DATABASE
+        const { error: dbError } = await supabaseClient.from('carichi').insert([{
+            operatore: operatore,
+            vettore: vettore,
+            cliente: cliente,
+            destinazione: document.getElementById('destinazione').value,
+            pannelli: listaMateriale,
+            spine: datiSpeciali.spine,
+            accessori: datiSpeciali.accessori,
+            pdf_url: pdfUrl,
+            foto_nome: fileName
+        }]);
         if (dbError) throw dbError;
 
-        // 5. INVOCA EDGE FUNCTION (Replichiamo l'invio rapportini)
-        // NOTA: Usa il nome della tua funzione se diversa da 'send-email-carico'
-        const { data: funcData, error: funcError } = await supabaseClient.functions.invoke('send-email-Carico Completo', {
+        // 4. INVIO EMAIL (Adattato per la tua Edge Function esistente)
+        // Mappiamo i campi del carico su quelli che la funzione si aspetta (zona, dataInt, descrizione)
+        const { data: funcData, error: funcError } = await supabaseClient.functions.invoke('send-email-rapportino', {
             body: { 
-                operatore, 
-                cliente, 
-                dataInt: dataCarico, 
-                descrizione: `Carico merci per ${cliente}. Vettore: ${vettore}`, 
-                pdfUrl,
-                fileName
+                operatore: operatore,
+                zona: cliente, // Usiamo cliente come "zona" per la funzione email
+                dataInt: dataCarico,
+                descrizione: `Carico merci per ${cliente}. Vettore: ${vettore}.`,
+                pdfUrl: pdfUrl,
+                fileName: fileName
             }
         });
 
-        if (funcError) {
-            console.error("Errore funzione:", funcError);
-            alert("✅ Dati salvati, ma l'invio email ha avuto un problema.");
-        } else {
-            alert("🚀 Carico salvato e inviato correttamente!");
-            location.reload(); // Reset app
-        }
+        if (funcError) throw new Error("Errore Email: " + funcError.message);
 
-        // Scarica copia locale
-        doc.save(fileName);
+        alert("🚀 Carico salvato e inviato correttamente!");
+        location.reload();
 
     } catch (err) {
-        console.error(err);
-        alert("❌ Errore: " + err.message);
+        console.error("Errore completo:", err);
+        alert("❌ Errore durante l'invio: " + err.message);
     } finally {
         btn.disabled = false;
         btn.innerText = "🚀 GENERA PDF E INVIA";
     }
 }
+
 
