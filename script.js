@@ -115,7 +115,7 @@ function addSpecial(tipo, valore) {
 // --- GENERAZIONE E INVIO (SISTEMA RAPPORTINI) ---
 async function generaEInvia() {
     const btn = document.querySelector('.btn-send');
-    btn.innerText = "⏳ INVIO IN CORSO...";
+    btn.innerText = "⏳ SALVATAGGIO IN CORSO...";
     btn.disabled = true;
 
     try {
@@ -125,78 +125,114 @@ async function generaEInvia() {
         const cliente = document.getElementById('cliente').value || "Generico";
         const operatore = document.getElementById('operatore').value;
         const dataCarico = document.getElementById('dataCarico').value;
-        const nomeFilePDF = `Carico_${cliente.replace(/\s+/g, '_')}_${Date.now()}.pdf`;
+        const vettore = document.getElementById('vettore').value;
+        const destinazione = document.getElementById('destinazione').value;
+        const listaMateriale = document.getElementById('pannelli').value;
 
-        // Costruzione PDF
-        doc.setFontSize(20); doc.setTextColor(0, 74, 153);
-        doc.text("RAPPORTO CARICO MERCI", 105, 20, {align: 'center'});
-        doc.setFontSize(12); doc.setTextColor(0);
-        doc.text(`Data: ${dataCarico} | Operatore: ${operatore}`, 20, 40);
-        doc.text(`Cliente: ${cliente}`, 20, 50);
-        doc.text(`Vettore: ${document.getElementById('vettore').value}`, 20, 60);
-        doc.line(20, 65, 190, 65);
-        const lista = doc.splitTextToSize(document.getElementById('pannelli').value, 170);
-        doc.text(lista, 20, 75);
-
-        // Aggiunta Foto (Logica Rapportini)
-        const fotoFiles = document.getElementById('fotoInput').files;
-        for (let i = 0; i < fotoFiles.length; i++) {
-            const imgData = await new Promise((resolve) => {
-                const reader = new FileReader();
-                reader.onload = (e) => resolve(e.target.result);
-                reader.readAsDataURL(fotoFiles[i]);
-            });
-            doc.addPage();
-            doc.addImage(imgData, 'JPEG', 15, 30, 180, 135);
+        if (!operatore || !cliente) {
+            alert("⚠️ Inserisci almeno Operatore e Cliente!");
+            btn.disabled = false;
+            btn.innerText = "🚀 GENERA PDF E INVIA";
+            return;
         }
 
+        // --- COSTRUZIONE PDF ---
+        doc.setFontSize(20); doc.setTextColor(0, 74, 153);
+        doc.text("RAPPORTO DI CARICO MERCI", 105, 20, {align: 'center'});
+        
+        doc.setFontSize(11); doc.setTextColor(0);
+        doc.text(`Data: ${dataCarico}`, 20, 40);
+        doc.text(`Operatore: ${operatore}`, 20, 47);
+        doc.text(`Vettore: ${vettore}`, 20, 54);
+        doc.text(`Cliente: ${cliente}`, 20, 61);
+        doc.text(`Destinazione: ${destinazione}`, 20, 68);
+        
+        doc.line(20, 73, 190, 73);
+        doc.setFont("helvetica", "bold");
+        doc.text("MATERIALE CARICATO:", 20, 80);
+        doc.setFont("helvetica", "normal");
+        
+        const splitLista = doc.splitTextToSize(listaMateriale, 170);
+        doc.text(splitLista, 20, 87);
+
+        // Aggiunta Foto (se presenti)
+        const fotoFiles = document.getElementById('fotoInput').files;
+        if (fotoFiles.length > 0) {
+            for (let i = 0; i < fotoFiles.length; i++) {
+                const imgData = await new Promise(resolve => {
+                    const reader = new FileReader();
+                    reader.onload = (e) => resolve(e.target.result);
+                    reader.readAsDataURL(fotoFiles[i]);
+                });
+                doc.addPage();
+                doc.text(`ALLEGATO FOTOGRAFICO ${i+1}`, 105, 20, {align: 'center'});
+                doc.addImage(imgData, 'JPEG', 15, 30, 180, 135);
+            }
+        }
+
+        // 1. TRASFORMA PDF IN BLOB PER UPLOAD
         const pdfBlob = doc.output('blob');
-        const pdfBase64 = doc.output('datauristring').split(',')[1];
+        const fileName = `${Date.now()}_Carico_${cliente.replace(/\s+/g, '_')}.pdf`;
 
-        // 1. STORAGE
-        await supabaseClient.storage.from('documenti-carico').upload(nomeFilePDF, pdfBlob);
+        // 2. UPLOAD SU SUPABASE STORAGE (Usa lo stesso bucket o uno nuovo se preferisci)
+        // Assicurati che il bucket 'documenti-carico' esista ed è pubblico
+        const { data: storageData, error: storageError } = await supabaseClient
+            .storage
+            .from('documenti-carico')
+            .upload(fileName, pdfBlob);
 
-        // 2. DATABASE
-        const { error: dbError } = await supabaseClient.from('carichi').insert([{
-            operatore: operatore,
-            vettore: document.getElementById('vettore').value,
-            cliente: cliente,
-            destinazione: document.getElementById('destinazione').value,
-            pannelli: document.getElementById('pannelli').value,
-            spine: datiSpeciali.spine,
-            accessori: datiSpeciali.accessori,
-            foto_nome: nomeFilePDF,
-            processato: false
-        }]);
+        if (storageError) throw new Error("Errore Storage: " + storageError.message);
+
+        // 3. OTTIENI URL PUBBLICO
+        const { data: urlData } = supabaseClient.storage.from('documenti-carico').getPublicUrl(fileName);
+        const pdfUrl = urlData.publicUrl;
+
+        // 4. SALVA NEL DATABASE (Tabella 'carichi')
+        const { error: dbError } = await supabaseClient
+            .from('carichi')
+            .insert([{
+                operatore: operatore,
+                vettore: vettore,
+                cliente: cliente,
+                destinazione: destinazione,
+                pannelli: listaMateriale,
+                spine: datiSpeciali.spine,
+                accessori: datiSpeciali.accessori,
+                pdf_url: pdfUrl,
+                foto_nome: fileName
+            }]);
+
         if (dbError) throw dbError;
 
-        // 3. EMAIL (RESEND)
-        const emailRes = await fetch('https://api.resend.com/emails', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': 'Bearer re_9vyoQUPF_AGCtEg6ALeFDzcyavtiKz4iq'
-            },
-            body: JSON.stringify({
-                from: 'App Carico <onboarding@resend.dev>',
-                to: ['l.damario@pannellitermici.it'],
-                subject: `Carico: ${cliente}`,
-                html: `<p>Nuovo carico salvato nel database.</p>`,
-                attachments: [{ filename: nomeFilePDF, content: pdfBase64 }]
-            })
+        // 5. INVOCA EDGE FUNCTION (Replichiamo l'invio rapportini)
+        // NOTA: Usa il nome della tua funzione se diversa da 'send-email-carico'
+        const { data: funcData, error: funcError } = await supabaseClient.functions.invoke('send-email-rapportino', {
+            body: { 
+                operatore, 
+                cliente, 
+                dataInt: dataCarico, 
+                descrizione: `Carico merci per ${cliente}. Vettore: ${vettore}`, 
+                pdfUrl,
+                fileName
+            }
         });
 
-        if (emailRes.ok) {
-            alert("✅ Tutto inviato con successo!");
-            location.reload();
+        if (funcError) {
+            console.error("Errore funzione:", funcError);
+            alert("✅ Dati salvati, ma l'invio email ha avuto un problema.");
         } else {
-            throw new Error("Errore invio email");
+            alert("🚀 Carico salvato e inviato correttamente!");
+            location.reload(); // Reset app
         }
 
+        // Scarica copia locale
+        doc.save(fileName);
+
     } catch (err) {
-        alert("Errore: " + err.message);
+        console.error(err);
+        alert("❌ Errore: " + err.message);
     } finally {
         btn.disabled = false;
-        btn.innerText = "🚀 INVIA E SALVA CARICO";
+        btn.innerText = "🚀 GENERA PDF E INVIA";
     }
 }
