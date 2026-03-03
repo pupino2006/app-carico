@@ -1,0 +1,22 @@
+{
+  "name": "PT Carico Merci",
+  "short_name": "PT Carico",
+  "description": "App per la gestione del carico merci Pannelli Termici",
+  "start_url": "index.html",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#004a99",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "ptsimbolo.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "ptsimbolo.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
