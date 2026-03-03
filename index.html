@@ -25,33 +25,34 @@
         <button class="tab-btn" onclick="openTab(event, 'tab3')">3. INVIO</button>
     </nav>
 
-    <section id="tab1" class="tab-content" style="display: block;">
-        <div class="form-group">
-            <label>Data Carico</label>
-            <input type="date" id="dataCarico">
-        </div>
-        <div class="form-group">
-            <label>Operatore</label>
-            <select id="operatore">
-                <option>Marcone F.</option>
-                <option>Olivieri M.</option>
-                <option>D'Amario A.</option>
-                <option>Di Carlo G.</option>
-                <option>Marcone G.</option>
-                <option>Lalli S.</option>
-                <option>Pannelli G.</option>
+  <section id="tab1" class="tab-content" style="display: block;">
+    <div class="form-group">
+        <label>Data Carico</label>
+        <input type="date" id="dataCarico">
+    </div>
+    <div class="form-group">
+        <label>Operatore</label>
+        <select id="operatore">
+            <option>Marcone F.</option>
+            <option>Olivieri M.</option>
             </select>
-        </div>
-        <div class="form-group">
-            <input type="text" id="vettore" placeholder="Vettore / Targa">
-        </div>
-        <div class="form-group">
-            <input type="text" id="cliente" placeholder="Cliente">
-        </div>
-        <div class="form-group">
-            <input type="text" id="destinazione" placeholder="Destinazione">
-        </div>
-    </section>
+    </div>
+
+    <div class="form-group scan-input">
+        <input type="text" id="vettore" placeholder="Vettore / Targa">
+        <button class="btn-scan-small" onclick="attivaScannerPerCampo('vettore')">📷</button>
+    </div>
+
+    <div class="form-group scan-input">
+        <input type="text" id="cliente" placeholder="Cliente">
+        <button class="btn-scan-small" onclick="attivaScannerPerCampo('cliente')">📷</button>
+    </div>
+
+    <div class="form-group scan-input">
+        <input type="text" id="destinazione" placeholder="Destinazione">
+        <button class="btn-scan-small" onclick="attivaScannerPerCampo('destinazione')">📷</button>
+    </div>
+</section>
 
 <section id="tab2" class="tab-content">
     <label>Scansione Pacchi / QR Code</label>
@@ -99,4 +100,5 @@
 
 <script src="script.js"></script>
 </body>
+
 </html>
