@@ -206,7 +206,7 @@ async function generaEInvia() {
 
         // 5. INVOCA EDGE FUNCTION (Replichiamo l'invio rapportini)
         // NOTA: Usa il nome della tua funzione se diversa da 'send-email-carico'
-        const { data: funcData, error: funcError } = await supabaseClient.functions.invoke('send-email-rapportino', {
+        const { data: funcData, error: funcError } = await supabaseClient.functions.invoke('send-email-Carico Completo', {
             body: { 
                 operatore, 
                 cliente, 
@@ -236,3 +236,4 @@ async function generaEInvia() {
         btn.innerText = "🚀 GENERA PDF E INVIA";
     }
 }
+
