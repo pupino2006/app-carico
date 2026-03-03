@@ -1,65 +1,79 @@
-// CONFIGURAZIONE
 const SB_URL = "https://vnzrewcbnoqbqvzckome.supabase.co"; 
 const SB_KEY = "sb_publishable_Sq9txbu-PmKdbxETSx2cjw_WqWEFBPO";
 const supabaseClient = supabase.createClient(SB_URL, SB_KEY);
 
 let html5QrCode;
 let isScanning = false;
-let campoTarget = 'pannelli'; // Default
+let campoTarget = 'pannelli';
 let datiSpeciali = { spine: "", accessori: "" };
 
-// --- GESTIONE SCANNER UNIVERSALE ---
-async function attivaScannerPerCampo(id) {
+// NAVIGAZIONE
+function openTab(evt, tabId) {
+    document.querySelectorAll('.tab-content').forEach(t => t.style.display = 'none');
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById(tabId).style.display = 'block';
+    if(evt) evt.currentTarget.classList.add('active');
+}
+
+// SCANNER PER CAMPI SPECIFICI (Cliente, Vettore, ecc)
+async function apriScannerPerCampo(id) {
     campoTarget = id;
-    const container = document.getElementById('qr-reader-container');
-    container.style.display = 'block';
-    if (!isScanning) {
-        startScanner();
-    }
-    container.scrollIntoView({behavior: "smooth"});
+    // Sposta l'utente sulla Tab 2 dove c'è il visualizzatore camera
+    openTab({currentTarget: document.querySelectorAll('.tab-btn')[1]}, 'tab2');
+    if (!isScanning) await toggleScanner();
+    document.getElementById('qr-reader-container').scrollIntoView({behavior: "smooth"});
 }
 
 async function toggleScanner() {
-    campoTarget = 'pannelli';
     const container = document.getElementById('qr-reader-container');
+    const btn = document.getElementById('btn-scan');
+    
     if (!isScanning) {
         container.style.display = 'block';
-        startScanner();
+        btn.innerText = "🛑 CHIUDI CAMERA";
+        html5QrCode = new Html5Qrcode("qr-reader");
+        try {
+            await html5QrCode.start(
+                { facingMode: "environment" }, 
+                { fps: 10, qrbox: 250 },
+                (text) => {
+                    if (navigator.vibrate) navigator.vibrate(100);
+                    
+                    if (campoTarget === 'pannelli') {
+                        addText(text);
+                    } else {
+                        // Inserisce il testo nel campo (cliente/vettore)
+                        document.getElementById(campoTarget).value = text;
+                        // Torna alla Tab 1 e chiude scanner
+                        toggleScanner();
+                        openTab({currentTarget: document.querySelectorAll('.tab-btn')[0]}, 'tab1');
+                        campoTarget = 'pannelli'; // Reset
+                    }
+                }
+            );
+            isScanning = true;
+        } catch (err) {
+            alert("Errore camera: " + err);
+        }
     } else {
         container.style.display = 'none';
+        btn.innerText = "📷 SCANNER PACCHI";
         if (html5QrCode) await html5QrCode.stop();
         isScanning = false;
     }
 }
 
-function startScanner() {
-    isScanning = true;
-    html5QrCode = new Html5Qrcode("qr-reader");
-    html5QrCode.start({ facingMode: "environment" }, { fps: 10, qrbox: 250 }, (text) => {
-        if (navigator.vibrate) navigator.vibrate(100);
-        
-        if (campoTarget === 'pannelli') {
-            addText(text); // Aggiunge alla lista textarea
-        } else {
-            document.getElementById(campoTarget).value = text;
-            toggleScanner(); // Chiude lo scanner per i campi singoli
-        }
-    }).catch(err => console.error("Errore scanner:", err));
-}
-
-// --- LOGICA DATI ---
 function addText(val) {
     const area = document.getElementById('pannelli');
     area.value += val + "\n";
-    area.scrollTop = area.scrollHeight;
 }
 
 function addSpecial(tipo, valore) {
     datiSpeciali[tipo] += valore + ", ";
-    addText(valore); // Visibile anche in textarea
+    addText(valore);
 }
 
-// --- GENERAZIONE E INVIO (REPLICA RAPPORTINI) ---
+// --- GENERAZIONE E INVIO (SISTEMA RAPPORTINI) ---
 async function generaEInvia() {
     const btn = document.querySelector('.btn-send');
     btn.innerText = "⏳ INVIO IN CORSO...";
@@ -72,47 +86,38 @@ async function generaEInvia() {
         const cliente = document.getElementById('cliente').value || "Generico";
         const operatore = document.getElementById('operatore').value;
         const dataCarico = document.getElementById('dataCarico').value;
-        const timestamp = Date.now();
-        const nomeFilePDF = `Carico_${cliente.replace(/\s+/g, '_')}_${timestamp}.pdf`;
+        const nomeFilePDF = `Carico_${cliente.replace(/\s+/g, '_')}_${Date.now()}.pdf`;
 
-        // Costruzione PDF (Intestazione)
-        doc.setFontSize(22); doc.setTextColor(0, 74, 153);
+        // Costruzione PDF
+        doc.setFontSize(20); doc.setTextColor(0, 74, 153);
         doc.text("RAPPORTO CARICO MERCI", 105, 20, {align: 'center'});
-        
         doc.setFontSize(12); doc.setTextColor(0);
-        doc.text(`Data: ${dataCarico}`, 20, 40);
-        doc.text(`Operatore: ${operatore}`, 20, 50);
+        doc.text(`Data: ${dataCarico} | Operatore: ${operatore}`, 20, 40);
+        doc.text(`Cliente: ${cliente}`, 20, 50);
         doc.text(`Vettore: ${document.getElementById('vettore').value}`, 20, 60);
-        doc.text(`Cliente: ${cliente}`, 20, 70);
-        doc.text(`Destinazione: ${document.getElementById('destinazione').value}`, 20, 80);
-        
-        doc.line(20, 85, 190, 85);
-        doc.text("DETTAGLIO CARICO:", 20, 95);
-        const splitLista = doc.splitTextToSize(document.getElementById('pannelli').value, 170);
-        doc.text(splitLista, 20, 105);
+        doc.line(20, 65, 190, 65);
+        const lista = doc.splitTextToSize(document.getElementById('pannelli').value, 170);
+        doc.text(lista, 20, 75);
 
-        // Aggiunta Foto
+        // Aggiunta Foto (Logica Rapportini)
         const fotoFiles = document.getElementById('fotoInput').files;
         for (let i = 0; i < fotoFiles.length; i++) {
-            const imgData = await new Promise(resolve => {
+            const imgData = await new Promise((resolve) => {
                 const reader = new FileReader();
                 reader.onload = (e) => resolve(e.target.result);
                 reader.readAsDataURL(fotoFiles[i]);
             });
             doc.addPage();
-            doc.text(`FOTO ALLEGATA ${i+1}`, 105, 15, {align: 'center'});
             doc.addImage(imgData, 'JPEG', 15, 30, 180, 135);
         }
 
         const pdfBlob = doc.output('blob');
         const pdfBase64 = doc.output('datauristring').split(',')[1];
 
-        // --- STEP A: UPLOAD STORAGE ---
-        console.log("Caricamento Storage...");
+        // 1. STORAGE
         await supabaseClient.storage.from('documenti-carico').upload(nomeFilePDF, pdfBlob);
 
-        // --- STEP B: SALVATAGGIO DATABASE ---
-        console.log("Salvataggio DB...");
+        // 2. DATABASE
         const { error: dbError } = await supabaseClient.from('carichi').insert([{
             operatore: operatore,
             vettore: document.getElementById('vettore').value,
@@ -121,13 +126,12 @@ async function generaEInvia() {
             pannelli: document.getElementById('pannelli').value,
             spine: datiSpeciali.spine,
             accessori: datiSpeciali.accessori,
-            foto_nome: nomeFilePDF, // Riferimento al file nello storage
+            foto_nome: nomeFilePDF,
             processato: false
         }]);
         if (dbError) throw dbError;
 
-        // --- STEP C: INVIO VIA RESEND (Stessa logica rapportini) ---
-        console.log("Invio Email...");
+        // 3. EMAIL (RESEND)
         const emailRes = await fetch('https://api.resend.com/emails', {
             method: 'POST',
             headers: {
@@ -137,25 +141,23 @@ async function generaEInvia() {
             body: JSON.stringify({
                 from: 'App Carico <onboarding@resend.dev>',
                 to: ['l.damario@pannellitermici.it'],
-                subject: `Nuovo Carico: ${cliente} - Op: ${operatore}`,
-                html: `<p>Generato rapporto di carico per <strong>${cliente}</strong>.</p>`,
+                subject: `Carico: ${cliente}`,
+                html: `<p>Nuovo carico salvato nel database.</p>`,
                 attachments: [{ filename: nomeFilePDF, content: pdfBase64 }]
             })
         });
 
         if (emailRes.ok) {
-            alert("✅ Carico salvato, PDF archiviato e Email inviata!");
-            doc.save(nomeFilePDF);
-            location.reload(); // Reset app
+            alert("✅ Tutto inviato con successo!");
+            location.reload();
         } else {
-            alert("⚠️ Salvato nel Cloud, ma errore nell'invio email.");
+            throw new Error("Errore invio email");
         }
 
     } catch (err) {
-        console.error(err);
-        alert("❌ Errore critico: " + err.message);
+        alert("Errore: " + err.message);
     } finally {
-        btn.innerText = "🚀 INVIA E SALVA CARICO";
         btn.disabled = false;
+        btn.innerText = "🚀 INVIA E SALVA CARICO";
     }
 }
