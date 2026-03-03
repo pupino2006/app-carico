@@ -25,72 +25,57 @@
         <button class="tab-btn" onclick="openTab(event, 'tab3')">3. INVIO</button>
     </nav>
 
-  <section id="tab1" class="tab-content" style="display: block;">
-    <div class="form-group">
-        <label>Data Carico</label>
-        <input type="date" id="dataCarico">
-    </div>
-    <div class="form-group">
-        <label>Operatore</label>
-        <select id="operatore">
-            <option>Marcone F.</option>
-            <option>Olivieri M.</option>
-            <option>D'Amario A.</option>
-            <option>Marcone G.</option>
-            <option>Lalli S.</option>
-            <option>D'Addazio J.</option>
-            <option>Ripa' L.</option>
+<section id="tab1" class="tab-content" style="display: block;">
+        <div class="form-group">
+            <label>Data Carico</label>
+            <input type="date" id="dataCarico">
+        </div>
+        <div class="form-group">
+            <label>Operatore</label>
+            <select id="operatore">
+                <option>Marcone F.</option>
+                <option>Olivieri M.</option>
+                <option>D'Amario A.</option>
+                <option>Di Carlo G.</option>
             </select>
-    </div>
-
-    <div class="form-group scan-input">
-        <input type="text" id="vettore" placeholder="Vettore / Targa">
-        <button class="btn-scan-small" onclick="attivaScannerPerCampo('vettore')">📷</button>
-    </div>
-
-    <div class="form-group scan-input">
-        <input type="text" id="cliente" placeholder="Cliente">
-        <button class="btn-scan-small" onclick="attivaScannerPerCampo('cliente')">📷</button>
-    </div>
-
-    <div class="form-group scan-input">
-        <input type="text" id="destinazione" placeholder="Destinazione">
-        <button class="btn-scan-small" onclick="attivaScannerPerCampo('destinazione')">📷</button>
-    </div>
-</section>
-
-<section id="tab2" class="tab-content">
-    <label>Scansione Pacchi / QR Code</label>
-    
-    <div id="qr-reader-container" style="display: none; margin-bottom: 15px;">
-        <div id="qr-reader" style="width: 100%; border-radius: 10px; overflow: hidden; border: 2px solid #004a99;"></div>
-    </div>
-
-    <button id="btn-scan" class="btn-tool" style="background: #ffc107; color: black; margin-bottom: 15px; width: 100%;" onclick="toggleScanner()">
-        📷 ATTIVA SCANNER QR
-    </button>
-
-    <label>Elenco Pacchi / Articoli</label>
-    <textarea id="pannelli" placeholder="Spara i pacchi o usa lo scanner..."></textarea>
-    
-    <div class="quick-actions">
-        <button class="btn-tool" onclick="addText('----------------------')">SEPARATORE</button>
-        <button class="btn-tool" onclick="addText('SPINE 20x40')">SPINE 20x40</button>
-        <button class="btn-tool" onclick="addText('SPINE 30x60')">SPINE 30x60</button>
+        </div>
         
-        <select id="selectAccessori" class="select-tool" onchange="addAccessorio()">
-            <option value="">AGGIUNGI ACCESSORIO...</option>
-            <option>ACC.ROSETO</option>
-            <option>ACC.CENTRO SUD</option>
-            <option>ACC.METAL TREC</option>
-            <option>ACC.VALLAROLA</option>
-            <option>ACC.METALLURGICA</option>
-            <option>ACC.VARI</option>
-        </select>
-    </div>
-</section>
+        <label>Dati Spedizione (Scansiona o Scrivi)</label>
+        <div class="input-scan-group">
+            <input type="text" id="vettore" placeholder="Vettore / Targa">
+            <button type="button" onclick="attivaScannerPerCampo('vettore')">📷</button>
+        </div>
+        <div class="input-scan-group">
+            <input type="text" id="cliente" placeholder="Cliente">
+            <button type="button" onclick="attivaScannerPerCampo('cliente')">📷</button>
+        </div>
+        <div class="input-scan-group">
+            <input type="text" id="destinazione" placeholder="Destinazione">
+            <button type="button" onclick="attivaScannerPerCampo('destinazione')">📷</button>
+        </div>
+    </section>
 
-<script src="https://unpkg.com/html5-qrcode"></script>
+    <section id="tab2" class="tab-content">
+        <div id="qr-reader-container" style="display: none; margin-bottom: 10px; border: 2px solid #004a99; border-radius: 10px; overflow: hidden;">
+            <div id="qr-reader"></div>
+        </div>
+        
+        <button id="btn-scan" class="btn-tool-warn" onclick="toggleScanner()">📷 APRI SCANNER ARTICOLI</button>
+
+        <label>Elenco Materiale Caricato</label>
+        <textarea id="pannelli" placeholder="L'elenco apparirà qui..."></textarea>
+        
+        <div class="quick-actions">
+            <button class="btn-tool" onclick="addText('--- SEPARATORE ---')">DIVISORE</button>
+            <button class="btn-tool" onclick="addSpecial('spine', '20x40')">SPINE 20x40</button>
+            <button class="btn-tool" onclick="addSpecial('spine', '30x60')">SPINE 30x60</button>
+            <select id="selectAccessori" class="select-tool" onchange="addSpecial('accessori', this.value)">
+                <option value="">+ ACCESSORI...</option>
+                <option>ACC.ROSETO</option>
+                <option>ACC.VARI</option>
+            </select>
+        </div>
+    </section>
 
     <section id="tab3" class="tab-content">
         <div class="foto-container">
