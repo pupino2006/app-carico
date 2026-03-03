@@ -186,7 +186,7 @@ async function generaEInvia() {
             },
             body: JSON.stringify({
                 from: 'App Carico <onboarding@resend.dev>',
-                to: ['l.damario@pannellitermici.it'],
+                to: ['geom.rip@gmail.com'],
                 subject: `Carico Merci: ${cliente} - ${dataCarico}`,
                 html: `<p>Nuovo carico effettuato da <strong>${operatore}</strong> per <strong>${cliente}</strong>.</p>`,
                 attachments: [{
@@ -216,3 +216,4 @@ window.onload = () => {
     caricaDatabase();
     openTab(null, 'tab1');
 };
+
