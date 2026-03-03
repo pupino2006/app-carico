@@ -14,6 +14,20 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-
 label { display: block; font-weight: bold; color: #004a99; margin-bottom: 5px; font-size: 14px; }
 input, select, textarea { width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 8px; font-size: 16px; box-sizing: border-box; }
 
+.scan-input {
+    display: flex;
+    gap: 5px;
+    align-items: center;
+}
+.btn-scan-small {
+    padding: 10px;
+    background: #004a99;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+}
+
 /* AREA PANNELLI */
 textarea#pannelli { height: 250px; font-family: monospace; background: #f9f9f9; border: 2px solid #004a99; resize: none; }
 
@@ -25,4 +39,5 @@ textarea#pannelli { height: 250px; font-family: monospace; background: #f9f9f9; 
 .preview-grid img { width: 100%; height: 100px; object-fit: cover; border-radius: 8px; border: 1px solid #ddd; }
 
 .btn-send { width: 100%; padding: 20px; background: #28a745; color: white; border: none; border-radius: 12px; font-size: 18px; font-weight: bold; margin-top: 30px; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+
 .btn-send:active { transform: scale(0.98); }
