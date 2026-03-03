@@ -15,64 +15,103 @@ function openTab(evt, tabId) {
     if(evt) evt.currentTarget.classList.add('active');
 }
 
-// SCANNER PER CAMPI SPECIFICI (Cliente, Vettore, ecc)
+// ... (Configurazione Supabase e datiSpeciali rimangono uguali) ...
+
 async function apriScannerPerCampo(id) {
     campoTarget = id;
-    // Sposta l'utente sulla Tab 2 dove c'è il visualizzatore camera
-    openTab({currentTarget: document.querySelectorAll('.tab-btn')[1]}, 'tab2');
-    if (!isScanning) await toggleScanner();
-    document.getElementById('qr-reader-container').scrollIntoView({behavior: "smooth"});
+    const container = document.getElementById('qr-reader-container');
+    
+    // Mostriamo il contenitore PRIMA di avviare la camera
+    container.style.display = 'block';
+    window.scrollTo(0, 0); 
+
+    if (!html5QrCode) {
+        html5QrCode = new Html5Qrcode("qr-reader");
+    }
+
+    try {
+        isScanning = true;
+        await html5QrCode.start(
+            { facingMode: "environment" }, 
+            { fps: 10, qrbox: { width: 250, height: 250 } },
+            (text) => {
+                if (navigator.vibrate) navigator.vibrate(100);
+                
+                if (campoTarget === 'pannelli') {
+                    addText(text);
+                } else {
+                    document.getElementById(campoTarget).value = text;
+                    toggleScanner(); // Chiude per i campi singoli
+                }
+            }
+        );
+    } catch (err) {
+        console.error(err);
+        alert("Impossibile avviare la fotocamera. Verifica i permessi.");
+    }
 }
 
 async function toggleScanner() {
     const container = document.getElementById('qr-reader-container');
-    const btn = document.getElementById('btn-scan');
-    
-    if (!isScanning) {
-        container.style.display = 'block';
-        btn.innerText = "🛑 CHIUDI CAMERA";
-        html5QrCode = new Html5Qrcode("qr-reader");
+    if (isScanning && html5QrCode) {
         try {
-            await html5QrCode.start(
-                { facingMode: "environment" }, 
-                { fps: 10, qrbox: 250 },
-                (text) => {
-                    if (navigator.vibrate) navigator.vibrate(100);
-                    
-                    if (campoTarget === 'pannelli') {
-                        addText(text);
-                    } else {
-                        // Inserisce il testo nel campo (cliente/vettore)
-                        document.getElementById(campoTarget).value = text;
-                        // Torna alla Tab 1 e chiude scanner
-                        toggleScanner();
-                        openTab({currentTarget: document.querySelectorAll('.tab-btn')[0]}, 'tab1');
-                        campoTarget = 'pannelli'; // Reset
-                    }
-                }
-            );
-            isScanning = true;
+            await html5QrCode.stop();
+            container.style.display = 'none';
+            isScanning = false;
         } catch (err) {
-            alert("Errore camera: " + err);
+            console.error(err);
         }
     } else {
-        container.style.display = 'none';
-        btn.innerText = "📷 SCANNER PACCHI";
-        if (html5QrCode) await html5QrCode.stop();
-        isScanning = false;
+        apriScannerPerCampo('pannelli');
     }
 }
 
 function addText(val) {
     const area = document.getElementById('pannelli');
-    area.value += val + "\n";
+    if (area) {
+        area.value += val + "\n";
+        area.scrollTop = area.scrollHeight; // Porta il cursore alla fine
+    }
 }
 
 function addSpecial(tipo, valore) {
-    datiSpeciali[tipo] += valore + ", ";
-    addText(valore);
-}
+    if (!valore) return;
 
+    let testoDaInserire = valore;
+
+    if (tipo === 'spine') {
+        // Popup per le spine (Metri Lineari)
+        let ml = prompt(`Inserisci i metri lineari (ml) per ${valore}:`, "");
+        
+        if (ml === null || ml.trim() === "") return; 
+        
+        testoDaInserire = `${valore} ml ${ml}`;
+        datiSpeciali.spine += testoDaInserire + ", ";
+
+    } else if (tipo === 'accessori') {
+        // Popup per gli accessori (Note o Quantità)
+        let note = prompt(`Aggiungi una nota o quantità per ${valore}:`, "");
+        
+        // Se l'utente preme OK senza scrivere nulla, aggiungiamo solo l'accessorio.
+        // Se preme ANNULLA, non aggiungiamo nulla.
+        if (note === null) return; 
+
+        if (note.trim() !== "") {
+            testoDaInserire = `${valore} (${note})`;
+        } else {
+            testoDaInserire = valore;
+        }
+        
+        datiSpeciali.accessori += testoDaInserire + ", ";
+        
+        // Reset della tendina HTML
+        const select = document.getElementById('selectAccessori');
+        if (select) select.value = "";
+    }
+
+    // Aggiunta al campo di testo principale
+    addText(testoDaInserire);
+}
 // --- GENERAZIONE E INVIO (SISTEMA RAPPORTINI) ---
 async function generaEInvia() {
     const btn = document.querySelector('.btn-send');
