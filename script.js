@@ -115,13 +115,14 @@ function addSpecial(tipo, valore) {
 // --- GENERAZIONE E INVIO (SISTEMA RAPPORTINI) ---
 async function generaEInvia() {
     const btn = document.querySelector('.btn-send');
-    btn.innerText = "⏳ INVIO IN CORSO...";
+    btn.innerText = "⏳ SALVATAGGIO...";
     btn.disabled = true;
 
     try {
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF();
         
+        // Recupero dati dai campi
         const cliente = document.getElementById('cliente').value || "Generico";
         const operatore = document.getElementById('operatore').value;
         const dataCarico = document.getElementById('dataCarico').value;
@@ -129,23 +130,18 @@ async function generaEInvia() {
         const destinazione = document.getElementById('destinazione').value || "N/D";
         const pannelli = document.getElementById('pannelli').value;
 
-        // --- PAGINA 1: DATI ---
+        // --- CREAZIONE PDF ---
         doc.setFontSize(22); doc.setTextColor(0, 74, 153);
-        doc.text("DOCUMENTO DI CARICO", 105, 20, {align: 'center'});
-        
+        doc.text("RAPPORTO DI CARICO", 105, 20, {align: 'center'});
         doc.setFontSize(12); doc.setTextColor(0);
-        doc.text(`Data: ${dataCarico}`, 20, 40);
-        doc.text(`Operatore: ${operatore}`, 20, 48);
-        doc.text(`Cliente: ${cliente}`, 20, 56);
-        doc.text(`Vettore: ${vettore}`, 20, 64);
-        doc.text(`Destinazione: ${destinazione}`, 20, 72);
-        
-        doc.line(20, 78, 190, 78);
-        doc.text("DETTAGLIO CARICO:", 20, 85);
+        doc.text(`Operatore: ${operatore} | Data: ${dataCarico}`, 20, 40);
+        doc.text(`Cliente: ${cliente}`, 20, 48);
+        doc.text(`Vettore: ${vettore}`, 20, 56);
+        doc.line(20, 62, 190, 62);
         const splitPannelli = doc.splitTextToSize(pannelli, 170);
-        doc.text(splitPannelli, 20, 92);
+        doc.text(splitPannelli, 20, 70);
 
-        // --- PAGINE SUCCESSIVE: FOTO MULTIPLE ---
+        // --- AGGIUNTA FOTO MULTIPLE ---
         const fotoFiles = document.getElementById('fotoInput').files;
         if (fotoFiles.length > 0) {
             for (let i = 0; i < fotoFiles.length; i++) {
@@ -155,7 +151,7 @@ async function generaEInvia() {
                     reader.readAsDataURL(fotoFiles[i]);
                 });
                 doc.addPage();
-                doc.text(`FOTO ALLEGATA ${i+1}`, 105, 20, {align: 'center'});
+                doc.text(`ALLEGATO FOTO ${i+1}`, 105, 20, {align: 'center'});
                 doc.addImage(imgData, 'JPEG', 15, 30, 180, 135);
             }
         }
@@ -163,17 +159,17 @@ async function generaEInvia() {
         const pdfBlob = doc.output('blob');
         const fileName = `${Date.now()}_Carico_${cliente.replace(/\s+/g, '_')}.pdf`;
 
-        // 1. UPLOAD SU STORAGE (Bucket: documenti-carico)
+        // 1. CARICAMENTO SU STORAGE
         const { error: storageError } = await supabaseClient.storage
             .from('documenti-carico')
             .upload(fileName, pdfBlob);
         if (storageError) throw storageError;
 
-        // 2. URL PUBBLICO
+        // 2. RECUPERO URL PUBBLICO
         const { data: urlData } = supabaseClient.storage.from('documenti-carico').getPublicUrl(fileName);
         const pdfUrl = urlData.publicUrl;
 
-        // 3. SALVATAGGIO DB
+        // 3. SALVATAGGIO NEL DATABASE
         const { error: dbError } = await supabaseClient.from('carichi').insert([{
             operatore, vettore, cliente, destinazione, pannelli,
             spine: datiSpeciali.spine,
@@ -183,20 +179,13 @@ async function generaEInvia() {
         }]);
         if (dbError) throw dbError;
 
-        // 4. CHIAMATA ALLA NUOVA EDGE FUNCTION
-        const { data, error: funcError } = await supabaseClient.functions.invoke('send-email-carico', {
-            body: { 
-                operatore, 
-                cliente, 
-                vettore,
-                pdfUrl, 
-                fileName 
-            }
+        // 4. INVIO EMAIL tramite la NUOVA FUNCTION
+        const { data: funcData, error: funcError } = await supabaseClient.functions.invoke('send-email-carico', {
+            body: { operatore, cliente, vettore, pdfUrl, fileName }
         });
-
         if (funcError) throw funcError;
 
-        alert("✅ Carico inviato e salvato con successo!");
+        alert("🚀 Carico inviato e salvato correttamente!");
         location.reload();
 
     } catch (err) {
@@ -207,4 +196,3 @@ async function generaEInvia() {
         btn.innerText = "🚀 GENERA PDF E INVIA";
     }
 }
-
