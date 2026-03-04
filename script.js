@@ -179,28 +179,27 @@ async function generaEInvia() {
         }]);
         if (dbError) throw dbError;
 
-        // ... (dopo il salvataggio nel database) ...
-        
-        // 4. INVIO EMAIL tramite la tua Function specifica
-        // Cambiamo il nome da 'send-email-carico' a 'clever-endpoint'
-        const { data: funcData, error: funcError } = await supabaseClient.functions.invoke('clever-endpoint', {
-            body: { 
-                operatore: operatore, 
-                cliente: cliente, 
-                vettore: vettore, 
-                pdfUrl: pdfUrl, 
-                fileName: fileName 
-            }
-        });
-        
-        if (funcError) {
-            console.error("Errore della funzione:", funcError);
-            // Se l'errore è qui, la riga nel DB c'è già (processato: false), ma la mail non parte
-            throw new Error("Dati salvati, ma errore invio email: " + funcError.message);
-        }
+// ... dopo l'insert nel database ...
 
-        alert("🚀 Carico inviato e salvato correttamente!");
-        location.reload();
+// 1. Ottieni l'URL pubblico del PDF caricato
+const { data: urlData } = supabaseClient.storage.from('documenti-carico').getPublicUrl(nomeFilePDF);
+const pdfUrl = urlData.publicUrl;
+
+// 2. Chiama la funzione 'clever-endpoint' per mandare la mail
+const { data: funcData, error: funcError } = await supabaseClient.functions.invoke('clever-endpoint', {
+    body: { 
+        operatore, 
+        cliente, 
+        vettore: document.getElementById('vettore').value, 
+        pdfUrl, 
+        fileName: nomeFilePDF 
+    }
+});
+
+if (funcError) throw new Error("Database salvato, ma errore email: " + funcError.message);
+
+alert("🚀 Carico completato e Email inviata!");
+location.reload();
 
     } catch (err) {
         console.error(err);
@@ -210,4 +209,5 @@ async function generaEInvia() {
         btn.innerText = "🚀 GENERA PDF E INVIA";
     }
 }
+
 
