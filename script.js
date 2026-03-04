@@ -179,11 +179,25 @@ async function generaEInvia() {
         }]);
         if (dbError) throw dbError;
 
-        // 4. INVIO EMAIL tramite la NUOVA FUNCTION
-        const { data: funcData, error: funcError } = await supabaseClient.functions.invoke('send-email-carico', {
-            body: { operatore, cliente, vettore, pdfUrl, fileName }
+        // ... (dopo il salvataggio nel database) ...
+        
+        // 4. INVIO EMAIL tramite la tua Function specifica
+        // Cambiamo il nome da 'send-email-carico' a 'clever-endpoint'
+        const { data: funcData, error: funcError } = await supabaseClient.functions.invoke('clever-endpoint', {
+            body: { 
+                operatore: operatore, 
+                cliente: cliente, 
+                vettore: vettore, 
+                pdfUrl: pdfUrl, 
+                fileName: fileName 
+            }
         });
-        if (funcError) throw funcError;
+        
+        if (funcError) {
+            console.error("Errore della funzione:", funcError);
+            // Se l'errore è qui, la riga nel DB c'è già (processato: false), ma la mail non parte
+            throw new Error("Dati salvati, ma errore invio email: " + funcError.message);
+        }
 
         alert("🚀 Carico inviato e salvato correttamente!");
         location.reload();
@@ -196,3 +210,4 @@ async function generaEInvia() {
         btn.innerText = "🚀 GENERA PDF E INVIA";
     }
 }
+
