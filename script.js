@@ -141,16 +141,26 @@ async function generaEInvia() {
         const dataCarico = document.getElementById('dataCarico').value;
         const nomeFilePDF = `Carico_${cliente.replace(/\s+/g, '_')}_${Date.now()}.pdf`;
 
-        // Costruzione PDF
-        doc.setFontSize(20); doc.setTextColor(0, 74, 153);
-        doc.text("RAPPORTO CARICO MERCI", 105, 20, {align: 'center'});
-        doc.setFontSize(12); doc.setTextColor(0);
-        doc.text(`Data: ${dataCarico} | Operatore: ${operatore}`, 20, 40);
-        doc.text(`Cliente: ${cliente}`, 20, 50);
-        doc.text(`Vettore: ${document.getElementById('vettore').value}`, 20, 60);
-        doc.line(20, 65, 190, 65);
+        // Costruzione PDF in stile "FOGLIO DI CARICO"
+        doc.setTextColor(0);
+        doc.setFontSize(18);
+        doc.text("FOGLIO DI CARICO", 105, 20, { align: 'center' });
+
+        doc.setFontSize(12);
+        const vettoreVal = document.getElementById('vettore').value || "";
+        const destVal = document.getElementById('destinazione').value || "";
+
+        doc.text(`Operatore: ${operatore}   Data: ${dataCarico}`, 20, 32);
+        doc.text(`Cliente: ${cliente}   Vettore: ${vettoreVal}`, 20, 40);
+        doc.text(`Destinazione: ${destVal}`, 20, 48);
+
+        doc.setFontSize(13);
+        doc.text("DETTAGLIO MERCE / PACCHI", 20, 60);
+        doc.line(20, 62, 190, 62);
+
+        doc.setFontSize(11);
         const lista = doc.splitTextToSize(document.getElementById('pannelli').value, 170);
-        doc.text(lista, 20, 75);
+        doc.text(lista, 20, 72);
 
         // Aggiunta Foto (Logica Rapportini)
         const fotoFiles = document.getElementById('fotoInput').files;
