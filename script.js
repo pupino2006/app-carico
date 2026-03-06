@@ -168,7 +168,17 @@ async function generaEInvia() {
         const pdfBase64 = doc.output('datauristring').split(',')[1];
 
         // 1. STORAGE
-        await supabaseClient.storage.from('documenti-carico').upload(nomeFilePDF, pdfBlob);
+        const { data: uploadData, error: uploadError } = await supabaseClient
+            .storage
+            .from('documenti-carico')
+            .upload(nomeFilePDF, pdfBlob, {
+                cacheControl: '3600',
+                upsert: false,
+                contentType: 'application/pdf'
+            });
+        if (uploadError) {
+            throw uploadError;
+        }
 
         // 1b. URL pubblico del PDF per salvataggio in tabella / email
         const { data: publicData } = supabaseClient
@@ -192,27 +202,32 @@ async function generaEInvia() {
         }]);
         if (dbError) throw dbError;
 
-        // 3. EMAIL (RESEND)
-        const emailRes = await fetch('https://api.resend.com/emails', {
+        // 3. EMAIL tramite Edge Function Supabase (clever-endpoint)
+        const emailRes = await fetch('https://vnzrewcbnoqbqvzckome.supabase.co/functions/v1/clever-endpoint', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': 'Bearer re_9vyoQUPF_AGCtEg6ALeFDzcyavtiKz4iq'
+                'apikey': SB_KEY,
+                'Authorization': `Bearer ${SB_KEY}`,
             },
             body: JSON.stringify({
-                from: 'App Carico <onboarding@resend.dev>',
-                to: ['l.damario@pannellitermici.it'],
-                subject: `Carico: ${cliente}`,
-                html: `<p>Nuovo carico salvato nel database.</p>`,
-                attachments: [{ filename: nomeFilePDF, content: pdfBase64 }]
+                // mappatura sui campi usati dalla edge function esistente (rapportini)
+                operatore: operatore,
+                zona: document.getElementById('destinazione').value || 'N.D.',
+                dataInt: dataCarico,
+                descrizione: document.getElementById('pannelli').value,
+                pdfUrl: pdfUrl
             })
         });
+
+        const debugText = await emailRes.text().catch(() => '');
+        console.log('EMAIL DEBUG:', emailRes.status, debugText);
 
         if (emailRes.ok) {
             alert("✅ Tutto inviato con successo!");
             location.reload();
         } else {
-            throw new Error("Errore invio email");
+            throw new Error("Errore invio email (Edge Function): " + debugText);
         }
 
     } catch (err) {
