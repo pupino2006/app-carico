@@ -170,6 +170,13 @@ async function generaEInvia() {
         // 1. STORAGE
         await supabaseClient.storage.from('documenti-carico').upload(nomeFilePDF, pdfBlob);
 
+        // 1b. URL pubblico del PDF per salvataggio in tabella / email
+        const { data: publicData } = supabaseClient
+            .storage
+            .from('documenti-carico')
+            .getPublicUrl(nomeFilePDF);
+        const pdfUrl = publicData?.publicUrl || '';
+
         // 2. DATABASE
         const { error: dbError } = await supabaseClient.from('carichi').insert([{
             operatore: operatore,
@@ -180,6 +187,7 @@ async function generaEInvia() {
             spine: datiSpeciali.spine,
             accessori: datiSpeciali.accessori,
             foto_nome: nomeFilePDF,
+            pdf_url: pdfUrl,
             processato: false
         }]);
         if (dbError) throw dbError;
