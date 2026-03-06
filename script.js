@@ -170,7 +170,7 @@ async function generaEInvia() {
         // 1. STORAGE
         const { data: uploadData, error: uploadError } = await supabaseClient
             .storage
-            .from('documenti-carico')
+            .from('DOCUMENTI-CARICO')
             .upload(nomeFilePDF, pdfBlob, {
                 cacheControl: '3600',
                 upsert: false,
@@ -183,7 +183,7 @@ async function generaEInvia() {
         // 1b. URL pubblico del PDF per salvataggio in tabella / email
         const { data: publicData } = supabaseClient
             .storage
-            .from('documenti-carico')
+            .from('DOCUMENTI-CARICO')
             .getPublicUrl(nomeFilePDF);
         const pdfUrl = publicData?.publicUrl || '';
 
