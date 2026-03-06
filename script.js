@@ -6,6 +6,9 @@ let html5QrCode;
 let isScanning = false;
 let campoTarget = 'pannelli';
 let datiSpeciali = { spine: "", accessori: "" };
+// Gestione cooldown scansioni pannelli
+let lastScanTime = 0;
+const SCAN_COOLDOWN_MS = 3000;
 
 // NAVIGAZIONE
 function openTab(evt, tabId) {
@@ -19,6 +22,10 @@ function openTab(evt, tabId) {
 
 async function apriScannerPerCampo(id) {
     campoTarget = id;
+    // Quando apriamo lo scanner sui pannelli, azzeriamo il cooldown
+    if (campoTarget === 'pannelli') {
+        lastScanTime = 0;
+    }
     const container = document.getElementById('qr-reader-container');
     
     // Mostriamo il contenitore PRIMA di avviare la camera
@@ -35,11 +42,18 @@ async function apriScannerPerCampo(id) {
             { facingMode: "environment" }, 
             { fps: 10, qrbox: { width: 250, height: 250 } },
             (text) => {
-                if (navigator.vibrate) navigator.vibrate(100);
-                
                 if (campoTarget === 'pannelli') {
+                    const now = Date.now();
+                    // Se è passato meno del cooldown dall'ultima scansione, ignora
+                    if (now - lastScanTime < SCAN_COOLDOWN_MS) {
+                        return;
+                    }
+                    lastScanTime = now;
+
+                    if (navigator.vibrate) navigator.vibrate(100);
                     addText(text);
                 } else {
+                    if (navigator.vibrate) navigator.vibrate(100);
                     document.getElementById(campoTarget).value = text;
                     toggleScanner(); // Chiude per i campi singoli
                 }
@@ -115,99 +129,88 @@ function addSpecial(tipo, valore) {
 // --- GENERAZIONE E INVIO (SISTEMA RAPPORTINI) ---
 async function generaEInvia() {
     const btn = document.querySelector('.btn-send');
-    btn.innerText = "⏳ SALVATAGGIO...";
+    btn.innerText = "⏳ INVIO IN CORSO...";
     btn.disabled = true;
 
     try {
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF();
         
-        // Recupero dati dai campi
         const cliente = document.getElementById('cliente').value || "Generico";
         const operatore = document.getElementById('operatore').value;
         const dataCarico = document.getElementById('dataCarico').value;
-        const vettore = document.getElementById('vettore').value || "N/D";
-        const destinazione = document.getElementById('destinazione').value || "N/D";
-        const pannelli = document.getElementById('pannelli').value;
+        const nomeFilePDF = `Carico_${cliente.replace(/\s+/g, '_')}_${Date.now()}.pdf`;
 
-        // --- CREAZIONE PDF ---
-        doc.setFontSize(22); doc.setTextColor(0, 74, 153);
-        doc.text("RAPPORTO DI CARICO", 105, 20, {align: 'center'});
+        // Costruzione PDF
+        doc.setFontSize(20); doc.setTextColor(0, 74, 153);
+        doc.text("RAPPORTO CARICO MERCI", 105, 20, {align: 'center'});
         doc.setFontSize(12); doc.setTextColor(0);
-        doc.text(`Operatore: ${operatore} | Data: ${dataCarico}`, 20, 40);
-        doc.text(`Cliente: ${cliente}`, 20, 48);
-        doc.text(`Vettore: ${vettore}`, 20, 56);
-        doc.line(20, 62, 190, 62);
-        const splitPannelli = doc.splitTextToSize(pannelli, 170);
-        doc.text(splitPannelli, 20, 70);
+        doc.text(`Data: ${dataCarico} | Operatore: ${operatore}`, 20, 40);
+        doc.text(`Cliente: ${cliente}`, 20, 50);
+        doc.text(`Vettore: ${document.getElementById('vettore').value}`, 20, 60);
+        doc.line(20, 65, 190, 65);
+        const lista = doc.splitTextToSize(document.getElementById('pannelli').value, 170);
+        doc.text(lista, 20, 75);
 
-        // --- AGGIUNTA FOTO MULTIPLE ---
+        // Aggiunta Foto (Logica Rapportini)
         const fotoFiles = document.getElementById('fotoInput').files;
-        if (fotoFiles.length > 0) {
-            for (let i = 0; i < fotoFiles.length; i++) {
-                const imgData = await new Promise(resolve => {
-                    const reader = new FileReader();
-                    reader.onload = (e) => resolve(e.target.result);
-                    reader.readAsDataURL(fotoFiles[i]);
-                });
-                doc.addPage();
-                doc.text(`ALLEGATO FOTO ${i+1}`, 105, 20, {align: 'center'});
-                doc.addImage(imgData, 'JPEG', 15, 30, 180, 135);
-            }
+        for (let i = 0; i < fotoFiles.length; i++) {
+            const imgData = await new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.onload = (e) => resolve(e.target.result);
+                reader.readAsDataURL(fotoFiles[i]);
+            });
+            doc.addPage();
+            doc.addImage(imgData, 'JPEG', 15, 30, 180, 135);
         }
 
         const pdfBlob = doc.output('blob');
-        const fileName = `${Date.now()}_Carico_${cliente.replace(/\s+/g, '_')}.pdf`;
+        const pdfBase64 = doc.output('datauristring').split(',')[1];
 
-        // 1. CARICAMENTO SU STORAGE
-        const { error: storageError } = await supabaseClient.storage
-            .from('documenti-carico')
-            .upload(fileName, pdfBlob);
-        if (storageError) throw storageError;
+        // 1. STORAGE
+        await supabaseClient.storage.from('documenti-carico').upload(nomeFilePDF, pdfBlob);
 
-        // 2. RECUPERO URL PUBBLICO
-        const { data: urlData } = supabaseClient.storage.from('documenti-carico').getPublicUrl(fileName);
-        const pdfUrl = urlData.publicUrl;
-
-        // 3. SALVATAGGIO NEL DATABASE
+        // 2. DATABASE
         const { error: dbError } = await supabaseClient.from('carichi').insert([{
-            operatore, vettore, cliente, destinazione, pannelli,
+            operatore: operatore,
+            vettore: document.getElementById('vettore').value,
+            cliente: cliente,
+            destinazione: document.getElementById('destinazione').value,
+            pannelli: document.getElementById('pannelli').value,
             spine: datiSpeciali.spine,
             accessori: datiSpeciali.accessori,
-            pdf_url: pdfUrl,
-            foto_nome: fileName
+            foto_nome: nomeFilePDF,
+            processato: false
         }]);
         if (dbError) throw dbError;
 
-// ... dopo l'insert nel database ...
+        // 3. EMAIL (RESEND)
+        const emailRes = await fetch('https://api.resend.com/emails', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer re_9vyoQUPF_AGCtEg6ALeFDzcyavtiKz4iq'
+            },
+            body: JSON.stringify({
+                from: 'App Carico <onboarding@resend.dev>',
+                to: ['l.damario@pannellitermici.it'],
+                subject: `Carico: ${cliente}`,
+                html: `<p>Nuovo carico salvato nel database.</p>`,
+                attachments: [{ filename: nomeFilePDF, content: pdfBase64 }]
+            })
+        });
 
-// 1. Ottieni l'URL pubblico del PDF caricato
-const { data: urlData } = supabaseClient.storage.from('documenti-carico').getPublicUrl(nomeFilePDF);
-const pdfUrl = urlData.publicUrl;
-
-// 2. Chiama la funzione 'clever-endpoint' per mandare la mail
-const { data: funcData, error: funcError } = await supabaseClient.functions.invoke('clever-endpoint', {
-    body: { 
-        operatore, 
-        cliente, 
-        vettore: document.getElementById('vettore').value, 
-        pdfUrl, 
-        fileName: nomeFilePDF 
-    }
-});
-
-if (funcError) throw new Error("Database salvato, ma errore email: " + funcError.message);
-
-alert("🚀 Carico completato e Email inviata!");
-location.reload();
+        if (emailRes.ok) {
+            alert("✅ Tutto inviato con successo!");
+            location.reload();
+        } else {
+            throw new Error("Errore invio email");
+        }
 
     } catch (err) {
-        console.error(err);
-        alert("❌ Errore: " + err.message);
+        alert("Errore: " + err.message);
     } finally {
         btn.disabled = false;
-        btn.innerText = "🚀 GENERA PDF E INVIA";
+        btn.innerText = "🚀 INVIA E SALVA CARICO";
     }
 }
-
-
